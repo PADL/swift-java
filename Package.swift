@@ -174,9 +174,10 @@ let package = Package(
             "-rpath",
             "-Xlinker",
             "\(javaHome)/lib/server",
-          ]
+          ],
+          .when(platforms: [.iOS, .macOS, .tvOS, .watchOS, .macCatalyst, .linux, .openbsd, .wasi, .windows])
         ),
-        .linkedLibrary("jvm"),
+        .linkedLibrary("jvm", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS, .macCatalyst, .linux, .openbsd, .wasi, .windows])),
       ]
     ),
     .target(

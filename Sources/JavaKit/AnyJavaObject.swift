@@ -49,6 +49,19 @@ public protocol AnyJavaObject {
   var javaHolder: JavaObjectHolder { get }
 }
 
+/// Protocol that allows Swift types to specify a custom Java class loader on
+/// initialization. This is useful for platforms (e.g. Android) where the default
+/// class loader does not make all application classes visible.
+public protocol CustomJavaClassLoaderConstructible: AnyJavaObject {
+  static func getJavaClassLoader(in environment: JNIEnvironment) throws -> JavaClassLoader!
+}
+
+/// Add getClassLoader() to JavaObject as it is otherwise recursively defined
+extension JavaObject {
+  @JavaMethod
+  public func getClassLoader() throws -> JavaClassLoader!
+}
+
 extension AnyJavaObject {
   /// Retrieve the underlying Java object.
   public var javaThis: jobject {
@@ -81,13 +94,40 @@ extension AnyJavaObject {
     JavaClass(javaThis: jniClass!, environment: javaEnvironment)
   }
 
-  /// Retrieve the Java class for this type.
-  public static func getJNIClass(in environment: JNIEnvironment) throws -> jclass {
-    try environment.translatingJNIExceptions {
+  /// Retrieve the Java class for this type using the default class loader.
+  private static func _withJNIClassFromDefaultClassLoader<T>(
+    in environment: JNIEnvironment,
+    _ body: (jclass) throws -> T
+  ) throws -> T {
+    let resolvedClass = try environment.translatingJNIExceptions {
       environment.interface.FindClass(
         environment,
         fullJavaClassNameWithSlashes
       )
     }!
+    return try body(resolvedClass)
+  }
+
+  /// Retrieve the Java class for this type using a specific class loader.
+  private static func _withJNIClassFromCustomClassLoader<T>(
+    _ classLoader: JavaClassLoader,
+    in environment: JNIEnvironment,
+    _ body: (jclass) throws -> T
+  ) throws -> T {
+    let resolvedClass = try classLoader.findClass(fullJavaClassName)
+    return try body(resolvedClass!.javaThis)
+  }
+
+  /// Retrieve the Java class for this type and execute body().
+  internal static func withJNIClass<T>(
+    in environment: JNIEnvironment,
+    _ body: (jclass) throws -> T
+  ) throws -> T {
+    if let customConstructible = self as? CustomJavaClassLoaderConstructible.Type,
+       let customClassLoader = try customConstructible.getJavaClassLoader(in: environment) {
+      try _withJNIClassFromCustomClassLoader(customClassLoader, in: environment, body)
+    } else {
+      try _withJNIClassFromDefaultClassLoader(in: environment, body)
+    }
   }
 }

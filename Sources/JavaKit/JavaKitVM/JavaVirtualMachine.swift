@@ -18,7 +18,7 @@ import FoundationEssentials
 import Foundation
 #endif
 
-typealias JavaVMPointer = UnsafeMutablePointer<JavaVM?>
+public typealias JavaVMPointer = UnsafeMutablePointer<JavaVM?>
 #if canImport(Android)
 typealias JNIEnvPointer = UnsafeMutablePointer<JNIEnv?>
 #else
@@ -36,7 +36,7 @@ public final class JavaVirtualMachine: @unchecked Sendable {
   private let destroyOnDeinit: Bool
 
   /// Adopt an existing JVM pointer.
-  private init(adoptingJVM jvm: JavaVMPointer) {
+  public init(adoptingJVM jvm: JavaVMPointer) {
     self.jvm = jvm
     self.destroyOnDeinit = false
   }
